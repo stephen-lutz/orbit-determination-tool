@@ -1,0 +1,3 @@
+CLASSIFICATION: UNCLASSIFIED
+Observation Debug Output (RA,Dec, in GCRF; SenPos in GCRF) from Sensor 36 Chip 0 Filter "None" with base MJD = 60021 0.881663773150649
+TargetID		Time(Seconds)	RA(Degrees)	Dec(Degrees)	SensorPosX	SensorPosY	SensorPosZ	SensorVelX	SensorVelY	SensorVelZ	VizMag	EstRange
