@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.log4j.Log4j2;
 import org.cohere.od.generation.MeasurementGenerator;
+import org.cohere.od.models.StateAndCovariance;
 import org.cohere.od.oif.OifHelper;
 import org.cohere.od.oif.OifRaDecData;
 import org.cohere.od.utils.AstroUtils;
