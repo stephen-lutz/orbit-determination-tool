@@ -6,7 +6,6 @@ import org.hipparchus.linear.MatrixUtils;
 import org.hipparchus.linear.RealMatrix;
 import org.hipparchus.random.CorrelatedRandomVectorGenerator;
 import org.hipparchus.random.GaussianRandomGenerator;
-import org.hipparchus.random.RandomDataGenerator;
 import org.hipparchus.random.RandomGenerator;
 import org.orekit.estimation.measurements.AngularRaDec;
 import org.orekit.estimation.measurements.GroundStation;
@@ -28,69 +27,75 @@ import org.orekit.time.TimeScalesFactory;
  */
 public class MeasurementGenerator {
 
-  private MeasurementGenerator() {
+  private final Propagator propagator;
+  private final RandomGenerator random;
+
+  /**
+   * Creates a new measurement generator.
+   *
+   * @param propagator The propagator corresponding to the spacecraft for which measurements will be
+   *                   generated.
+   * @param random     The random number generator used to add Gaussian noise to the measurements.
+   */
+  public MeasurementGenerator(Propagator propagator, RandomGenerator random) {
+    this.propagator = propagator;
+    this.random = random;
   }
 
   /**
-   * {@code randomSeed} defaults to -1 (no noise).
+   * Constructor with {@code random} defaulted to null (no noise on measurements).
    *
-   * @see MeasurementGenerator#generateRaDecMeasurements(Propagator, GroundStation, double[],
-   * AbsoluteDate, AbsoluteDate, double, int)
+   * @see MeasurementGenerator#MeasurementGenerator(Propagator, RandomGenerator)
    */
-  public static List<ObservedMeasurement<?>> generateRaDecMeasurements(Propagator propagator,
-      GroundStation groundStation, double[] raDecSigmas, AbsoluteDate startTime,
-      AbsoluteDate stopTime, double step) {
-    return generateRaDecMeasurements(propagator, groundStation, raDecSigmas, startTime, stopTime,
-        step, -1);
+  public MeasurementGenerator(Propagator propagator) {
+    this(propagator, null);
   }
 
   /**
    * Generate a list of RA/Dec measurements.
    *
-   * @param propagator    The spacecraft propagator to use.
    * @param groundStation The ground station observing the spacecraft.
-   * @param raDecSigmas   The standard deviations of right ascension and declination, respectively.
+   * @param sigmas        The standard deviations of right ascension and declination, respectively.
    * @param startTime     The start time of the measurement set.
    * @param stopTime      The stop time of the measurement set.
    * @param step          The time step between measurements.
-   * @param randomSeed    The random seed for generating noise on the measurements. Use -1 for no
-   *                      noise.
    * @return A list of RA/Dec {@link ObservedMeasurement}s.
    */
-  public static List<ObservedMeasurement<?>> generateRaDecMeasurements(Propagator propagator,
-      GroundStation groundStation, double[] raDecSigmas, AbsoluteDate startTime,
-      AbsoluteDate stopTime, double step, int randomSeed) {
+  public List<ObservedMeasurement<?>> generateRaDecMeasurements(GroundStation groundStation,
+      double[] sigmas, double[] weights, AbsoluteDate startTime, AbsoluteDate stopTime,
+      double step) {
 
     Generator generator = new Generator();
     ObservableSatellite satellite = generator.addPropagator(propagator);
 
-    RandomDataGenerator random = randomSeed == -1 ? null : new RandomDataGenerator(randomSeed);
-    double[] raDecWeights = new double[]{1.0, 1.0};
-    MeasurementBuilder<?> measurementBuilder = getRaDecBuilder(random, groundStation, satellite,
-        raDecSigmas, raDecWeights);
-
+    MeasurementBuilder<?> measurementBuilder = getRaDecBuilder(groundStation, satellite, sigmas,
+        weights);
     DatesSelector selector = new FixedStepSelector(step, TimeScalesFactory.getUTC());
+
     generator.addScheduler(new ContinuousScheduler<>(measurementBuilder, selector));
     return new ArrayList<>(generator.generate(startTime, stopTime));
-
   }
 
-  private static MeasurementBuilder<AngularRaDec> getRaDecBuilder(RandomGenerator random,
-      GroundStation groundStation, ObservableSatellite satellite, double[] sigmas,
-      double[] weights) {
+  private MeasurementBuilder<AngularRaDec> getRaDecBuilder(GroundStation groundStation,
+      ObservableSatellite satellite, double[] sigmas, double[] weights) {
 
-    double raSigma = sigmas[0];
-    double decSigma = sigmas[1];
+    // Add Gaussian noise to measurements.
+    CorrelatedRandomVectorGenerator noiseGenerator = null;
+    if (random != null) {
 
-    RealMatrix covariance = MatrixUtils.createRealDiagonalMatrix(
-        new double[]{raSigma * raSigma, decSigma * decSigma});
+      final double SMALL = 1e-15;
+      double raSigma = sigmas[0];
+      double decSigma = sigmas[1];
 
-    CorrelatedRandomVectorGenerator noiseGenerator = random == null ? null
-        : new CorrelatedRandomVectorGenerator(covariance, 1e-10,
-            new GaussianRandomGenerator(random));
+      RealMatrix covariance = MatrixUtils.createRealDiagonalMatrix(
+          new double[]{raSigma * raSigma, decSigma * decSigma});
+
+      noiseGenerator = new CorrelatedRandomVectorGenerator(covariance, SMALL,
+          new GaussianRandomGenerator(random));
+    }
 
     return new AngularRaDecBuilder(noiseGenerator, groundStation, FramesFactory.getGCRF(),
-        new double[]{raSigma, decSigma}, weights, satellite);
+        sigmas, weights, satellite);
   }
 
 }

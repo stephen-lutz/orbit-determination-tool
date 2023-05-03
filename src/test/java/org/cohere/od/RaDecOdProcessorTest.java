@@ -22,6 +22,7 @@ import org.cohere.od.utils.NdmUtils;
 import org.cohere.od.utils.PropagatorFactory;
 import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.hipparchus.linear.RealMatrix;
+import org.hipparchus.random.RandomDataGenerator;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.orekit.bodies.CelestialBodyFactory;
@@ -168,25 +169,27 @@ class RaDecOdProcessorTest {
 
     double burstInterval = 3600 * 6.0;  // 6 hours between sets of measurements
     double measurementStepSize = 10.0;  // 10 seconds between measurements
+    double[] raDecWeights = new double[]{1.0, 1.0}; // equally weighted and unscaled
+    RandomDataGenerator random = new RandomDataGenerator(123456);
 
+    MeasurementGenerator measurementGenerator = new MeasurementGenerator(propagator, random);
     AbsoluteDate measStart = initialState.getDate().shiftedBy(60.0);
     AbsoluteDate measStop = measStart.shiftedBy(60.0);
     List<ObservedMeasurement<?>> measurements = new ArrayList<>(
-        MeasurementGenerator.generateRaDecMeasurements(
-            propagator, groundStation, raDecSigmas, measStart, measStop, measurementStepSize,
-            123456));
+        measurementGenerator.generateRaDecMeasurements(
+            groundStation, raDecSigmas, raDecWeights, measStart, measStop, measurementStepSize));
 
+    measurementGenerator = new MeasurementGenerator(propagator, random);
     measStart = measStop.shiftedBy(burstInterval);
     measStop = measStart.shiftedBy(60.0);
-    measurements.addAll(MeasurementGenerator.generateRaDecMeasurements(
-        propagator, groundStation, raDecSigmas, measStart, measStop, measurementStepSize,
-        123457));
+    measurements.addAll(measurementGenerator.generateRaDecMeasurements(
+        groundStation, raDecSigmas, raDecWeights, measStart, measStop, measurementStepSize));
 
+    measurementGenerator = new MeasurementGenerator(propagator, random);
     measStart = measStop.shiftedBy(burstInterval);
     measStop = measStart.shiftedBy(60.0);
-    measurements.addAll(MeasurementGenerator.generateRaDecMeasurements(
-        propagator, groundStation, raDecSigmas, measStart, measStop, measurementStepSize,
-        123458));
+    measurements.addAll(measurementGenerator.generateRaDecMeasurements(
+        groundStation, raDecSigmas, raDecWeights, measStart, measStop, measurementStepSize));
 
     return measurements;
 
@@ -252,10 +255,8 @@ class RaDecOdProcessorTest {
     }
 
     // Create the OD processor.
-    ODEIntegratorBuilder integratorBuilder = PropagatorFactory.createIntegratorBuilder(0.001, 300.0,
-        10.0);
     OrbitDeterminationPropagatorBuilder propagatorBuilder = PropagatorFactory.createDefaultPropagatorBuilder(
-        initialState, integratorBuilder);
+        initialState);
     BatchLSEstimator estimator = EstimatorFactory.createBatchLsEstimator(propagatorBuilder,
         measurements);
     OdProcessor processor = new RaDecOdProcessor(estimator);
