@@ -17,7 +17,9 @@ import org.cohere.od.models.StateAndCovariance;
 import org.cohere.od.oif.OifHelper;
 import org.cohere.od.oif.OifRaDecData;
 import org.cohere.od.utils.AstroUtils;
+import org.cohere.od.utils.EstimatorFactory;
 import org.cohere.od.utils.NdmUtils;
+import org.cohere.od.utils.PropagatorFactory;
 import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.hipparchus.linear.RealMatrix;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,6 +29,7 @@ import org.orekit.bodies.GeodeticPoint;
 import org.orekit.data.DataContext;
 import org.orekit.data.DataProvidersManager;
 import org.orekit.data.DirectoryCrawler;
+import org.orekit.estimation.leastsquares.BatchLSEstimator;
 import org.orekit.estimation.measurements.GroundStation;
 import org.orekit.estimation.measurements.ObservedMeasurement;
 import org.orekit.files.ccsds.definitions.BodyFacade;
@@ -47,6 +50,7 @@ import org.orekit.orbits.CartesianOrbit;
 import org.orekit.orbits.Orbit;
 import org.orekit.propagation.Propagator;
 import org.orekit.propagation.SpacecraftState;
+import org.orekit.propagation.conversion.ODEIntegratorBuilder;
 import org.orekit.propagation.conversion.OrbitDeterminationPropagatorBuilder;
 import org.orekit.time.AbsoluteDate;
 import org.orekit.time.TimeScalesFactory;
@@ -55,14 +59,14 @@ import org.orekit.utils.IERSConventions;
 import org.orekit.utils.TimeStampedPVCoordinates;
 
 @Log4j2
-class OdProcessorTest {
+class RaDecOdProcessorTest {
 
   private static final String AF3 = "AF3";
   private static final String CP1 = "CP1";
-  private static final double DEFAULT_MASS = 500.0;
   private static final double KM_TO_M = 1000.0;
-  private static final double MS_TO_S = 1e-3;
   private static final String SA2 = "SA2";
+  private static final double SPACECRAFT_MASS = 500.0;
+  private static final String TEST_OUTPUT_PATH = "test_output";
   private static final String TEST_RESOURCES_PATH = "src/test/resources";
 
   @BeforeAll
@@ -115,7 +119,7 @@ class OdProcessorTest {
 
     Orbit orbit = new CartesianOrbit(initialPv, FramesFactory.getGCRF(),
         Constants.IERS2010_EARTH_MU);
-    return new SpacecraftState(orbit, DEFAULT_MASS);
+    return new SpacecraftState(orbit, SPACECRAFT_MASS);
   }
 
   private SpacecraftState createInitialStateCp1() {
@@ -130,7 +134,7 @@ class OdProcessorTest {
 
     Orbit orbit = new CartesianOrbit(initialPv, FramesFactory.getGCRF(),
         Constants.IERS2010_EARTH_MU);
-    return new SpacecraftState(orbit, DEFAULT_MASS);
+    return new SpacecraftState(orbit, SPACECRAFT_MASS);
   }
 
   private SpacecraftState createInitialStateSa2() {
@@ -145,7 +149,7 @@ class OdProcessorTest {
 
     Orbit orbit = new CartesianOrbit(initialPv, FramesFactory.getGCRF(),
         Constants.IERS2010_EARTH_MU);
-    return new SpacecraftState(orbit, DEFAULT_MASS);
+    return new SpacecraftState(orbit, SPACECRAFT_MASS);
   }
 
   private GroundStation createMaui() {
@@ -157,9 +161,8 @@ class OdProcessorTest {
   private List<ObservedMeasurement<?>> generateTestMeasurements(SpacecraftState initialState,
       GroundStation groundStation, double[] raDecSigmas) {
 
-    double t0 = System.currentTimeMillis();
-    OrbitDeterminationPropagatorBuilder propagatorBuilder = OdProcessor.createPropagatorBuilder(
-        initialState);
+    OrbitDeterminationPropagatorBuilder propagatorBuilder =
+        PropagatorFactory.createDefaultPropagatorBuilder(initialState);
     Propagator propagator = propagatorBuilder.buildPropagator(
         propagatorBuilder.getSelectedNormalizedParameters());
 
@@ -184,10 +187,6 @@ class OdProcessorTest {
     measurements.addAll(MeasurementGenerator.generateRaDecMeasurements(
         propagator, groundStation, raDecSigmas, measStart, measStop, measurementStepSize,
         123458));
-
-    double tf = System.currentTimeMillis();
-    log.debug("Generated {} measurements in {} seconds.", measurements.size(),
-        (tf - t0) * MS_TO_S);
 
     return measurements;
 
@@ -252,13 +251,21 @@ class OdProcessorTest {
 
     }
 
+    // Create the OD processor.
+    ODEIntegratorBuilder integratorBuilder = PropagatorFactory.createIntegratorBuilder(0.001, 300.0,
+        10.0);
+    OrbitDeterminationPropagatorBuilder propagatorBuilder = PropagatorFactory.createDefaultPropagatorBuilder(
+        initialState, integratorBuilder);
+    BatchLSEstimator estimator = EstimatorFactory.createBatchLsEstimator(propagatorBuilder,
+        measurements);
+    OdProcessor processor = new RaDecOdProcessor(estimator);
+
     // Process the measurements.
-    double t0 = System.currentTimeMillis();
-    StateAndCovariance estimatedStateAndCovariance = OdProcessor.processMeasurements(initialState,
+    StateAndCovariance estimatedStateAndCovariance = processor.processMeasurements(initialState,
         measurements);
     assertNotNull(estimatedStateAndCovariance);
-    double tf = System.currentTimeMillis();
-    log.info("Estimation time (s): " + (tf - t0) * MS_TO_S);
+
+    // Compare final state and covariance to expected values.
 
     // Create an OPM and OEM based on the estimated orbit and covariance
     Files.createDirectories(Path.of(TEST_OUTPUT_PATH));
@@ -293,8 +300,8 @@ class OdProcessorTest {
     metadataTemplate.setTimeSystem(TimeSystem.UTC);
 
     // Back propagate to the initial state epoch.
-    OrbitDeterminationPropagatorBuilder builder = OdProcessor.createPropagatorBuilder(
-        estimatedState);
+    OrbitDeterminationPropagatorBuilder builder =
+        PropagatorFactory.createDefaultPropagatorBuilder(estimatedState);
     Propagator propagator = builder.buildPropagator(builder.getSelectedNormalizedParameters());
     propagator.propagate(startTime);
 
@@ -317,8 +324,6 @@ class OdProcessorTest {
     }
 
   }
-
-  private static final String TEST_OUTPUT_PATH = "test_output";
 
   /**
    * Write the output OPM file.
