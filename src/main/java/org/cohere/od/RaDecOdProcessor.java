@@ -4,6 +4,8 @@ import java.util.List;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.cohere.od.models.StateAndCovariance;
+import org.cohere.od.utils.EstimatorFactory;
+import org.cohere.od.utils.PropagatorFactory;
 import org.hipparchus.linear.RealMatrix;
 import org.orekit.errors.OrekitException;
 import org.orekit.estimation.leastsquares.BatchLSEstimator;
@@ -13,6 +15,7 @@ import org.orekit.orbits.PositionAngle;
 import org.orekit.propagation.Propagator;
 import org.orekit.propagation.SpacecraftState;
 import org.orekit.propagation.StateCovariance;
+import org.orekit.propagation.conversion.OrbitDeterminationPropagatorBuilder;
 
 /**
  * An {@link OdProcessor} to process right ascension and declination measurements using a batch
@@ -21,10 +24,11 @@ import org.orekit.propagation.StateCovariance;
 @Log4j2
 public class RaDecOdProcessor implements OdProcessor {
 
-  private final BatchLSEstimator estimator;
-
-  public RaDecOdProcessor(BatchLSEstimator estimator) {
-    this.estimator = estimator;
+  /**
+   * Default constructor.
+   */
+  public RaDecOdProcessor() {
+    // Do nothing.
   }
 
   /**
@@ -43,6 +47,12 @@ public class RaDecOdProcessor implements OdProcessor {
     if (measurements.isEmpty()) {
       throw new IllegalArgumentException("Must provide at least 1 measurement.");
     }
+
+    // Create the estimator
+    OrbitDeterminationPropagatorBuilder propagatorBuilder =
+        PropagatorFactory.createDefaultPropagatorBuilder(initialState);
+    BatchLSEstimator estimator =
+        EstimatorFactory.createBatchLsEstimator(propagatorBuilder, measurements);
 
     // Execute the OD.
     Propagator estimatedPropagator;

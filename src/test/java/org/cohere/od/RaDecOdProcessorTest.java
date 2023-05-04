@@ -1,7 +1,5 @@
 package org.cohere.od;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -17,13 +15,14 @@ import org.cohere.od.models.StateAndCovariance;
 import org.cohere.od.oif.OifHelper;
 import org.cohere.od.oif.OifRaDecData;
 import org.cohere.od.utils.AstroUtils;
-import org.cohere.od.utils.EstimatorFactory;
 import org.cohere.od.utils.NdmUtils;
 import org.cohere.od.utils.PropagatorFactory;
+import org.cohere.od.utils.TestUtils;
 import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.hipparchus.linear.MatrixUtils;
 import org.hipparchus.linear.RealMatrix;
 import org.hipparchus.random.RandomDataGenerator;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.orekit.bodies.CelestialBodyFactory;
@@ -31,7 +30,6 @@ import org.orekit.bodies.GeodeticPoint;
 import org.orekit.data.DataContext;
 import org.orekit.data.DataProvidersManager;
 import org.orekit.data.DirectoryCrawler;
-import org.orekit.estimation.leastsquares.BatchLSEstimator;
 import org.orekit.estimation.measurements.GroundStation;
 import org.orekit.estimation.measurements.ObservedMeasurement;
 import org.orekit.files.ccsds.definitions.BodyFacade;
@@ -359,7 +357,7 @@ class RaDecOdProcessorTest {
     } else {
 
       File[] oifFiles = oifRoot.toFile().listFiles((d, name) -> name.endsWith(".oif"));
-      assertNotNull(oifFiles);
+      Assertions.assertNotNull(oifFiles);
       for (File oifFile : oifFiles) {
         log.debug("Reading OIF file: {}", oifFile.toPath().toRealPath().toString());
         List<OifRaDecData> raDecData = OifHelper.parseOifRaDecFile(oifFile.toPath());
@@ -368,17 +366,11 @@ class RaDecOdProcessorTest {
 
     }
 
-    // Create the OD processor.
-    OrbitDeterminationPropagatorBuilder propagatorBuilder = PropagatorFactory.createDefaultPropagatorBuilder(
-        initialState);
-    BatchLSEstimator estimator = EstimatorFactory.createBatchLsEstimator(propagatorBuilder,
-        measurements);
-    OdProcessor processor = new RaDecOdProcessor(estimator);
-
     // Process the measurements.
+    OdProcessor processor = new RaDecOdProcessor();
     StateAndCovariance estimatedStateAndCovariance = processor.processMeasurements(initialState,
         measurements);
-    assertNotNull(estimatedStateAndCovariance);
+    Assertions.assertNotNull(estimatedStateAndCovariance);
 
     // Compare final state and covariance to expected values.
     TestUtils.assertAreEqual(expectedPv,

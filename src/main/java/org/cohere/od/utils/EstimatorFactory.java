@@ -11,7 +11,6 @@ import org.orekit.orbits.Orbit;
 import org.orekit.propagation.Propagator;
 import org.orekit.propagation.SpacecraftState;
 import org.orekit.propagation.conversion.OrbitDeterminationPropagatorBuilder;
-import org.orekit.propagation.conversion.PropagatorBuilder;
 import org.orekit.time.AbsoluteDate;
 import org.orekit.time.TimeStamped;
 
@@ -26,7 +25,7 @@ public class EstimatorFactory {
   }
 
   /**
-   * Creates a batch LS estimator to perform an OD. The OD epoch is the epoch of the final
+   * Creates a batch LS estimator to perform an OD. The OD epoch is the epoch of the latest
    * measurement.
    *
    * @param propagatorBuilder The propagator builder to use.

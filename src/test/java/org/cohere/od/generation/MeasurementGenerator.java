@@ -23,7 +23,7 @@ import org.orekit.time.FixedStepSelector;
 import org.orekit.time.TimeScalesFactory;
 
 /**
- * Helper class for generating measurements.
+ * A class to generate simulated measurements for a spacecraft.
  */
 public class MeasurementGenerator {
 

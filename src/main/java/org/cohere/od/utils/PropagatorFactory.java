@@ -19,6 +19,8 @@ import org.orekit.utils.Constants;
 
 public class PropagatorFactory {
 
+  private static final int GRAVITY_FIELD_DEGREE = 21;
+  private static final int GRAVITY_FIELD_ORDER = 21;
   private static final double MAX_INTEGRATOR_STEP = 300.0;
   private static final double MIN_INTEGRATOR_STEP = 0.001;
   private static final double POSITION_ERROR = 10.0;
@@ -49,7 +51,7 @@ public class PropagatorFactory {
         integratorBuilder, PositionAngle.MEAN, 1.0);
 
     NormalizedSphericalHarmonicsProvider gravityField = GravityFieldFactory.getNormalizedProvider(
-        21, 21);
+        GRAVITY_FIELD_DEGREE, GRAVITY_FIELD_ORDER);
     HolmesFeatherstoneAttractionModel gravityModel = new HolmesFeatherstoneAttractionModel(
         AstroUtils.EARTH.getBodyFrame(), gravityField);
 
