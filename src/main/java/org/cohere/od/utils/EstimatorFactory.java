@@ -20,7 +20,6 @@ public class EstimatorFactory {
   private static final int MAX_ITERATIONS = 25;
   private static final double SINGULARITY_THRESHOLD = 1e-11;
 
-
   private EstimatorFactory() {
   }
 
