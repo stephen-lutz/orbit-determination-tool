@@ -1,0 +1,76 @@
+# Base pipeline configuration
+include:
+  - project: 'Denali/pipeline-templates'
+    ref: master
+    file: pipelines/from-source-code/java/maven.yml
+
+# Do not fail the pipeline if the openscan-scan job fails
+openscap-scan:
+  allow_failure: true
+
+deploy-to-staging:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $DEPLOY_TO_STAGING == "true"
+
+# Define project level variables for the pipeline. These may be required to set
+# or may override default values set in the jobs
+variables:
+  MVN_PROJECT: 'true'
+  SAST_JAVA_VERSION: 11
+  DEPLOY_TO_STAGING: 'false'
+  DEPLOYMENT_TYPE: 'helm'
+  DEPLOYMENT_PROJECT: 'TODO'
+
+maven-build:
+  stage: build-from-source
+  image: maven:3.6.3-jdk-11
+  script:
+    - echo "***** Starting ${CI_JOB_STAGE}:${CI_JOB_NAME} *****"
+    - |-
+      if [[ -f "${MAVEN_SETTINGS}" ]]; then
+        echo "Maven settings file detected. Using it for project build"
+        MVN_BUILD_OPTS="${MVN_BUILD_OPTS} -s ${MAVEN_SETTINGS}"
+      fi
+    - |-
+      if [[ "${MVN_CUSTOM_TRUSTSTORE}" == "true" ]]; then
+        base64 -d < "${MVN_TRUSTSTORE_JKS_BASE64_ENC}" > /tmp/mvn_truststore.jks
+        MVN_BUILD_OPTS="${MVN_BUILD_OPTS} -Djavax.net.ssl.trustStore=/tmp/mvn_truststore.jks -Djavax.net.ssl.trustStorePassword=${MAVEN_TRUSTSTORE_JKS_BASE64_ENC_PASSWORD}"
+      fi
+    - echo -ne "MVN_BUILD_GOALS = $MVN_BUILD_GOALS \nMVN_OPTS = $MVN_BUILD_OPTS\n"
+    - mvn ${MVN_BUILD_GOALS} ${MVN_BUILD_OPTS}
+  artifacts:
+    paths:
+      - target/classes
+      - target/test-classes
+      - target/*.ear
+      - target/*.war
+      - target/*.jar
+    expire_in: 1 hour
+
+surefire unit test:
+  stage: test
+  image: maven:3.6.3-jdk-11
+  script:
+    - echo "***** Starting ${CI_JOB_STAGE}:${CI_JOB_NAME} *****"
+    - |-
+      if [[ -f "${MAVEN_SETTINGS}" ]]; then
+        echo "Maven settings file detected. Using it for project build"
+        MVN_TEST_OPTS="${MVN_TEST_OPTS} -s ${MAVEN_SETTINGS}"
+      fi
+    - |-
+      if [[ "${MVN_CUSTOM_TRUSTSTORE}" == "true" ]]; then
+        base64 -d < "${MVN_TRUSTSTORE_JKS_BASE64_ENC}" > /tmp/mvn_truststore.jks
+        MVN_TEST_OPTS="${MVN_TEST_OPTS} -Djavax.net.ssl.trustStore=/tmp/mvn_truststore.jks -Djavax.net.ssl.trustStorePassword=${MAVEN_TRUSTSTORE_JKS_BASE64_ENC_PASSWORD}"
+      fi
+    - echo -ne "MVN_TEST_GOALS = $MVN_TEST_GOALS \nMVN_OPTS = $MVN_TEST_OPTS\n"
+    - mvn ${MVN_TEST_GOALS} ${MVN_TEST_OPTS}
+  artifacts:
+    when: always
+    paths:
+      - target/site
+      - target/surefire-reports
+      - target/failsafe-reports
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+        - target/failsafe-reports/TEST-*.xml

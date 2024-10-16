@@ -1,15 +1,13 @@
 package org.cohere.od.models;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Value;
 import org.orekit.propagation.SpacecraftState;
 import org.orekit.propagation.StateCovariance;
 
 /**
  * Container class for spacecraft state and covariance.
  */
-@Data
-@AllArgsConstructor
+@Value
 public class StateAndCovariance {
 
   StateCovariance covariance;

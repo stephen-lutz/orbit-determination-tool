@@ -39,9 +39,7 @@ class EvaluationCounter<T extends ObservedMeasurement<T>> {
    */
   public String format(int size) {
     final StringBuilder builder = new StringBuilder();
-    builder.append(active);
-    builder.append('/');
-    builder.append(total);
+    builder.append(active).append("/").append(total);
     while (builder.length() < size) {
       if (builder.length() % 2 == 0) {
         builder.insert(0, ' ');

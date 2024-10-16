@@ -127,15 +127,8 @@ public class OifHelper {
       GeodeticPoint sensorLocation = AstroUtils.EARTH.transform(sensorPosition, sensorPositionFrame,
           epoch);
 
-      OifRaDecData data = new OifRaDecData();
-      data.setTargetId(targetId);
-      data.setEpoch(epoch);
-      data.setRightAscension(rightAscension);
-      data.setDeclination(declination);
-      data.setRaDecFrame(raDecFrame);
-      data.setSensorLocation(sensorLocation);
-
-      allData.add(data);
+      allData.add(new OifRaDecData(declination, epoch, raDecFrame, rightAscension,
+          sensorLocation, targetId));
     }
 
     return allData;
